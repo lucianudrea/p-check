@@ -3,19 +3,19 @@
 verbose=0
 log_file=""
 
-# ✅ Funcție help
+# ✅ Help function
 usage() {
-  echo "Utilizare: $0 [-v|--verbose] fisier_log"
+  echo "Usage: $0 [-v|--verbose] log_file"
   echo ""
-  echo "  -v, --verbose     Afișează secvențele lipsă individuale (ex: 'Lipsă între 45 și 49')"
-  echo "  -h, --help        Afișează acest mesaj de ajutor"
+  echo "  -v, --verbose     Show missing sequences individually (e.g. 'Missing packets between 45 and 49')"
+  echo "  -h, --help        Show this help message"
   echo ""
-  echo "Exemplu:"
+  echo "Example:"
   echo "  $0 -v my.isp.log"
   exit 0
 }
 
-# ✅ Parsare argumente
+# ✅ Parse arguments
 while [[ $# -gt 0 ]]; do
   case "$1" in
     -v|--verbose)
@@ -26,7 +26,7 @@ while [[ $# -gt 0 ]]; do
       usage
       ;;
     -*)
-      echo "Eroare: Opțiune necunoscută: $1"
+      echo "Error: Unknown option: $1"
       usage
       ;;
     *)
@@ -37,39 +37,46 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ -z "$log_file" ]]; then
-  echo "❌ Eroare: Nu ai specificat fișierul de log."
+  echo "❌ Error: You must specify the log file."
   usage
 fi
 
 if [[ ! -f "$log_file" ]]; then
-  echo "❌ Fișierul '$log_file' nu există."
+  echo "❌ File '$log_file' not found."
   exit 2
 fi
 
-# ✅ Variabile
+# ✅ Variables
 total_expected=0
 total_received=0
 prev_seq=
 missing=0
-log_size=$(stat --format="%s" "$log_file")
-processed_size=0
+										  
+				
 
-# ✅ Loop prin log
-while read -r line; do
+file_size=$(stat -c%s "$log_file")
+bytes_read=0
+last_percent_shown=0
+
+# ✅ Process log line-by-line
+while IFS= read -r line; do
+  # Update read byte count
+  ((bytes_read += ${#line} + 1))
+
   seq=$(echo "$line" | grep -oP 'icmp_seq=\K[0-9]+')
   if [[ -n "$seq" ]]; then
     ((total_received++))
 
     if [[ -n "$prev_seq" ]]; then
       if (( seq == 0 && prev_seq == 65535 )); then
-        # Wrap normal, ignorăm
+        # Normal wraparound, skip
         :
       elif (( seq > prev_seq )); then
         gap=$((seq - prev_seq - 1))
         if (( gap > 0 )); then
           ((missing += gap))
           if (( verbose )); then
-            echo "Pachete lipsă între $prev_seq și $seq"
+            echo "Missing packets between $prev_seq and $seq"
           fi
         fi
       elif (( seq < prev_seq )); then
@@ -77,7 +84,7 @@ while read -r line; do
         if (( gap > 0 )); then
           ((missing += gap))
           if (( verbose )); then
-            echo "Pachete lipsă între $prev_seq și $seq (wraparound)"
+            echo "Missing packets between $prev_seq and $seq (wraparound)"
           fi
         fi
       fi
@@ -86,25 +93,37 @@ while read -r line; do
     prev_seq=$seq
   fi
 
-  # Afișează progresul
-  ((processed_size+=${#line}))
-  progress=$((processed_size * 100 / log_size))
-  echo -ne "Analyzing: $progress% completed
-"
+  # ✅ Progress update
+  if (( file_size > 0 )); then
+    percent=$((bytes_read * 100 / file_size))
+    if (( percent > last_percent_shown )); then
+      tput sc
+      tput cup $(($(tput lines)-1)) 0
+      echo -ne "🔍 Analyzing: $percent% complete     "
+      tput rc
+      last_percent_shown=$percent
+    fi
+  fi
 done < "$log_file"
 
+# ✅ Final stats
 total_expected=$((total_received + missing))
-
-# ✅ Rezumat
-echo -e "
-📄 Fișier analizat : $log_file"
-echo "✅ Pachete primite  : $total_received"
-echo "❌ Pachete pierdute : $missing"
-echo "📦 Total așteptate  : $total_expected"
+tput cup $(($(tput lines)-1)) 0  # move to last line
+			 
+		 
+								  
+											 
+									  
+											   
 
 if (( total_expected > 0 )); then
-  loss_percent=$(awk "BEGIN { printf "%.2f", ($missing / $total_expected) * 100 }")
-  echo "📉 Pierdere         : $loss_percent %"
+  loss_percent=$(awk "BEGIN { printf \"%.2f\", ($missing / $total_expected) * 100 }")
+  echo -ne "📄 File analyzed    : $log_file\n"
+  echo "✅ Packets received : $total_received"
+  echo "❌ Packets lost     : $missing"
+  echo "📦 Total expected   : $total_expected"
+  echo "📉 Packet loss      : $loss_percent %"
 else
-  echo "⚠️ Nu s-au găsit pachete valide în log."
+  echo -e "\n⚠️ No valid packets found in the log."
 fi
+
