@@ -1,4 +1,3 @@
-
 # 📡 p-check — ICMP Packet Loss Analyzer
 
 `p-check` is a lightweight, cross-distro Bash script for analyzing ICMP packet loss from `ping` logs.  
@@ -29,6 +28,8 @@ nohup ping 1.1.1.1 >> ping.log 2>&1 &
 - `>> ping.log` appends ping output to a file  
 - `2>&1` redirects errors into the same log  
 - `&` sends it to the background
+
+You do not need to stop the `ping` process to analyze the log. You can run the `p-check` script on the fly while `ping` is still running.
 
 ---
 
@@ -96,6 +97,19 @@ Missing packets between 108 and 110
 ```
 
 In **non-verbose mode**, only the real-time progress and final summary are shown.
+
+To make the script executable and run it:
+
+```bash
+chmod +x p-check
+./p-check ping.log
+```
+
+Alternatively, you can run it directly from GitHub without downloading by using `curl`:
+
+```bash
+curl -sSL https://raw.githubusercontent.com/lucianudrea/p-check/main/p-check -o p-check && chmod +x p-check && ./p-check ping.log
+```
 
 ---
 
