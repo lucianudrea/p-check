@@ -110,7 +110,7 @@ chmod +x p-check.sh
 ## ⚙️ Command-Line Options
 
 ```bash
-./p-check [-v|--verbose] <log_file>
+./p-check.sh [-v|--verbose] <log_file>
 ```
 
 | Option       | Description                                       |
